@@ -6,6 +6,7 @@ import (
 )
 
 // ---- mock value type for testing ----
+// cspell:ignore nbytes
 // 项目中的 Value 要求实现 Len() int，因此这里用简单的 String 来 mock
 type String string
 

@@ -6,6 +6,7 @@ import (
 )
 
 // Cache 是一个FIFO 缓存
+// cspell:ignore nbytes
 type Cache struct {
 	maxBytes  int64                                // 允许使用的最大内存
 	nbytes    int64                                // 当前已使用的内存

@@ -6,6 +6,7 @@ import (
 )
 
 // 最小堆的排序从队头到队尾是从小到大的
+// cspell:ignore nbytes
 type Cache struct {
 	maxBytes  int64
 	nbytes    int64
