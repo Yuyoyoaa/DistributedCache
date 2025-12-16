@@ -7,12 +7,12 @@ import (
 )
 
 func TestCacheBasic(t *testing.T) {
-	c := newCache(100, "lru", nil)
+	c := NewCache(100, "lru", nil)
 
 	v1 := byteview.New([]byte("hello"))
-	c.add("k1", v1)
+	c.Add("k1", v1)
 
-	val, ok := c.get("k1")
+	val, ok := c.Get("k1")
 	if !ok {
 		t.Fatalf("expected k1 exist")
 	}
@@ -28,10 +28,10 @@ func TestCacheEviction(t *testing.T) {
 		evicted = key
 	}
 
-	c := newCache(10, "lru", onEvicted)
+	c := NewCache(10, "lru", onEvicted)
 
-	c.add("k1", byteview.New([]byte("12345")))
-	c.add("k2", byteview.New([]byte("12345"))) // 超过容量触发淘汰
+	c.Add("k1", byteview.New([]byte("12345")))
+	c.Add("k2", byteview.New([]byte("12345"))) // 超过容量触发淘汰
 
 	if evicted == "" {
 		t.Fatalf("Eviction expected but did not happen")

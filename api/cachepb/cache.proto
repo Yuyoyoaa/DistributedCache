@@ -1,0 +1,31 @@
+// cSpell:ignore cachepb
+syntax = "proto3"; // 使用 proto3 语法版本
+
+package cachepb;
+
+// Go 包路径
+//  Go 代码生成选项：生成路径为 DistributedCache/api/cachepb，包名为 cachepb
+option go_package = "DistributedCache/api/cachepb;cachepb";
+
+// GetRequest 定义 Get 方法的请求参数
+message GetRequest {
+  // group 是缓存的命名空间，例如 "scores", "users"
+  string group = 1;  // // 字段编号 1
+  // key 是具体的缓存键
+  string key = 2;
+}
+
+
+// GetResponse 定义 Get 方法的响应
+message GetResponse {
+  // value 是缓存的值，使用 bytes 类型以支持任意二进制数据
+  bytes value = 1;
+}
+
+// GroupCache 定义分布式缓存的 RPC 服务
+service GroupCache {
+  // Get 方法：根据 Group 和 Key 获取缓存值
+  rpc Get(GetRequest) returns (GetResponse);
+}
+
+// 当 protobuf 序列化数据时：不存储字段名 "group"、"key";只存储字段编号 1、"group的值"、2、"key的值"

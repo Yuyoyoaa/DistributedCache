@@ -1,0 +1,14 @@
+{
+    "version": "0.2",
+    "words": [
+        "protoc",
+        "protobuf",
+        "grpc",
+        "cachepb"
+    ],
+    "ignorePaths": [
+        "**/*.pb.go",
+        "**/*_grpc.pb.go",
+        "**/*_pb.go"
+    ]
+}

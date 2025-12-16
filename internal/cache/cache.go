@@ -12,7 +12,8 @@ import (
 
 // cache 是对底层缓存策略算法的并发安全封装
 // 它不应该被外部直接使用，而是作为 Group 的组件
-type cache struct {
+// 开头大写就是可导出（公有）,小写是不可导出
+type Cache struct {
 	mu         sync.RWMutex          // 读写锁:允许多个读，但写操作互斥
 	policy     policy.EvictionPolicy // 核心接口，支持多态
 	cacheBytes int64                 // 允许使用的最大内存
@@ -21,8 +22,8 @@ type cache struct {
 }
 
 // newCache 创建一个新的并发缓存实例
-func newCache(cacheBytes int64, policyType string, onEvicted func(string, policy.Value)) *cache {
-	return &cache{
+func NewCache(cacheBytes int64, policyType string, onEvicted func(string, policy.Value)) *Cache {
+	return &Cache{
 		cacheBytes: cacheBytes,
 		policyType: policyType,
 		onEvicted:  onEvicted,
@@ -30,7 +31,7 @@ func newCache(cacheBytes int64, policyType string, onEvicted func(string, policy
 }
 
 // add 写入缓存（并发安全）
-func (c *cache) add(key string, val byteview.Byteview) {
+func (c *Cache) Add(key string, val byteview.Byteview) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -43,7 +44,7 @@ func (c *cache) add(key string, val byteview.Byteview) {
 }
 
 // get 读取缓存（并发安全）
-func (c *cache) get(key string) (value byteview.Byteview, ok bool) {
+func (c *Cache) Get(key string) (value byteview.Byteview, ok bool) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
