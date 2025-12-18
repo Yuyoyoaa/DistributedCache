@@ -86,7 +86,7 @@ func (g *Group) Get(key string) (byteview.Byteview, error) {
 		return v, nil
 	}
 
-	// 2.缓存为命中，调用load（包含远程加载和本地回源）
+	// 2.缓存未命中，调用load（包含远程加载和本地回源）
 	return g.load(key)
 }
 
