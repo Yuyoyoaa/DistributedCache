@@ -65,7 +65,7 @@ func TestGet(t *testing.T) {
 	}
 
 	// 2. 再次获取，应该直接命中缓存，loadCounts 不应增加
-	for k, _ := range db {
+	for k := range db {
 		_, err := gee.Get(k)
 		if err != nil {
 			t.Fatal(err)
