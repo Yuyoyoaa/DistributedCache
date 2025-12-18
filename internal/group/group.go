@@ -15,10 +15,10 @@ type Getter interface {
 	Get(key string) ([]byte, error)
 }
 
-// GetterFunc 函数类型实现 Getter 接口，方便使用者传入函数
+// 定义函数类型，实现Getter接口
 type GetterFunc func(key string) ([]byte, error)
 
-// Get 实现 Getter 接口
+// GetterFunc类型实现Getter接口的Get方法
 func (f GetterFunc) Get(key string) ([]byte, error) {
 	return f(key)
 }
@@ -50,6 +50,7 @@ func NewGroup(name string, cacheBytes int64, policyType string, getter Getter) *
 		name:      name,
 		getter:    getter,
 		mainCache: cache.NewCache(cacheBytes, policyType, nil),
+		loader:    &singleflight.Group{},
 	}
 	groups[name] = g
 	return g
