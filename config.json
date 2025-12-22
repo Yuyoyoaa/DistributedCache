@@ -1,0 +1,9 @@
+{
+  "addr": "localhost:8001",
+  "etcd_addrs": [
+    "localhost:2379"
+  ],
+  "cache_size": 1048576,
+  "cache_policy": "lfu",
+  "service_name": "distributed-cache/nodes"
+}
