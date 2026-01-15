@@ -45,8 +45,8 @@ func (c *Cache) Add(key string, val byteview.Byteview) {
 
 // get 读取缓存（并发安全）
 func (c *Cache) Get(key string) (value byteview.Byteview, ok bool) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
+	c.mu.Lock()
+	defer c.mu.Unlock()
 
 	if c.policy == nil {
 		return
