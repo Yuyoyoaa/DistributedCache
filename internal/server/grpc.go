@@ -79,7 +79,8 @@ func (s *Server) Close() error {
 }
 
 // Get 处理来自其他节点或客户端的gRPC Get请求
-// 这是Server的Get（接电话），调用时机​：其他节点/客户端请求数据时
+// 这是Server的Get（接电话），调用时机：其他节点/客户端请求数据时
+// 关键：使用 GetLocally 而不是 Get，避免再次路由到其他节点导致死锁
 func (s *Server) Get(ctx context.Context, req *pb.GetRequest) (*pb.GetResponse, error) {
 	groupName := req.GetGroup()
 	key := req.GetKey()
@@ -94,8 +95,10 @@ func (s *Server) Get(ctx context.Context, req *pb.GetRequest) (*pb.GetResponse, 
 		return nil, fmt.Errorf("no such group: %s", groupName)
 	}
 
-	// 调用 Group.Get 获取数据 (内部可能触发回源或远程拉取）
-	view, err := g.Get(key)
+	// 使用 GetLocally：作为被请求的节点，直接本地处理，不再转发
+	// 这是因为请求到达这里，说明发起方已经通过一致性哈希选定了本节点
+	// 本节点不应该再次路由出去，否则会导致循环转发甚至死锁
+	view, err := g.GetLocally(key)
 	if err != nil {
 		return nil, err
 	}

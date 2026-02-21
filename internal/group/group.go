@@ -25,7 +25,7 @@ func (f GetterFunc) Get(key string) ([]byte, error) {
 
 // Group 是分布式缓存的核心结构
 type Group struct {
-	name      string              //缓存空间名称，例如 "scores", "users"
+	name      string              //缓存空��名称，例如 "scores", "users"
 	getter    Getter              //缓存未命中时的回源回调（由客户端定义）
 	mainCache *cache.Cache        //本地并发缓存 (封装了 LRU/LFU 等)
 	peers     PeerPicker          // 节点选择器
@@ -73,7 +73,7 @@ func (g *Group) RegisterPeers(peers PeerPicker) {
 	g.peers = peers
 }
 
-// Get获取缓存值
+// Get 获取缓存值（外部客户端入口）
 // 流程：本地缓存 -> (如果没命中) -> 选节点 -> (如果是远程) RPC获取 -> (如果是本地) 回源获取
 func (g *Group) Get(key string) (byteview.Byteview, error) {
 	if key == "" {
@@ -86,8 +86,27 @@ func (g *Group) Get(key string) (byteview.Byteview, error) {
 		return v, nil
 	}
 
-	// 2.缓存未命中，调用load（包含远程加载和本地回源）
+	// 2.缓存未命中，调用load（包含远程加��和本地回源）
 	return g.load(key)
+}
+
+// GetLocally 获取缓存值（仅本地，供远程节点 RPC 调用时使用）
+// 当一个请求从远程节点转发过来时，本节点不应再次 PickPeer 转发出去
+// 否则在同进程多节点场景下会因共享 singleflight 导致死锁
+// 即使在多进程部署中，这也能避免无限转发的风险
+func (g *Group) GetLocally(key string) (byteview.Byteview, error) {
+	if key == "" {
+		return byteview.Byteview{}, fmt.Errorf("key is required")
+	}
+
+	// 1. 查本地缓存
+	if v, ok := g.mainCache.Get(key); ok {
+		log.Println("[Cache] Hit local (from peer request)")
+		return v, nil
+	}
+
+	// 2. 缓存未命中，直接本地回源（不再路由到其他节点）
+	return g.getLocally(key)
 }
 
 // load 加载数据，使用 singleflight 确保并发场景下只有一个请求去加载
@@ -117,7 +136,7 @@ func (g *Group) load(key string) (value byteview.Byteview, err error) {
 
 // getLocally 调用用户回调函数g.getter.Get()获取源数据
 func (g *Group) getLocally(key string) (byteview.Byteview, error) {
-	bytes, err := g.getter.Get(key)  // g.getter.Get由客户端定义
+	bytes, err := g.getter.Get(key) // g.getter.Get由客户端定义
 	if err != nil {
 		return byteview.Byteview{}, err
 	}
