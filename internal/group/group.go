@@ -26,7 +26,7 @@ func (f GetterFunc) Get(key string) ([]byte, error) {
 // Group 是分布式缓存的核心结构
 type Group struct {
 	name      string              //缓存空间名称，例如 "scores", "users"
-	getter    Getter              //缓存未命中时的回源回调
+	getter    Getter              //缓存未命中时的回源回调（由客户端定义）
 	mainCache *cache.Cache        //本地并发缓存 (封装了 LRU/LFU 等)
 	peers     PeerPicker          // 节点选择器
 	loader    *singleflight.Group // 防止缓存击穿
@@ -117,7 +117,7 @@ func (g *Group) load(key string) (value byteview.Byteview, err error) {
 
 // getLocally 调用用户回调函数g.getter.Get()获取源数据
 func (g *Group) getLocally(key string) (byteview.Byteview, error) {
-	bytes, err := g.getter.Get(key)
+	bytes, err := g.getter.Get(key)  // g.getter.Get由客户端定义
 	if err != nil {
 		return byteview.Byteview{}, err
 	}

@@ -69,6 +69,8 @@ func main() {
 
 	flag.Parse() // ← 解析命令行，如果有传参，会覆盖上面的默认值
 
+	_ = api
+
 	// 3. 初始化核心组件：Group (缓存命名空间)
 	// 定义当缓存未命中时如何回源获取数据
 	getter := group.GetterFunc(func(key string) ([]byte, error) {
@@ -140,4 +142,7 @@ func main() {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 	log.Println("Server is shutting down...")
+	if err := svr.Close(); err != nil {
+		log.Printf("Failed to close server: %v", err)
+	}
 }

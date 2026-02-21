@@ -14,7 +14,7 @@ import (
 // 它不应该被外部直接使用，而是作为 Group 的组件
 // 开头大写就是可导出（公有）,小写是不可导出
 type Cache struct {
-	mu         sync.RWMutex          // 读写锁:允许多个读，但写操作互斥
+	mu         sync.Mutex          // 读写锁:允许多个读，但写操作互斥
 	policy     policy.EvictionPolicy // 核心接口，支持多态
 	cacheBytes int64                 // 允许使用的最大内存
 	policyType string                // 策略类型: "lru", "fifo", "lfu"

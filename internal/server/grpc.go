@@ -26,6 +26,8 @@ type Server struct {
 	mu                               sync.Mutex             // 保护 peers 和 peersGetter
 	peers                            *consistenthash.Map    // 一致性哈希环
 	peersGetter                      map[string]*grpcGetter // 映射：远程节点地址 -> gRPC 客户端
+	grpcServer                       *grpc.Server
+	lis                              net.Listener
 }
 
 func NewServer(self string) *Server {
@@ -45,8 +47,35 @@ func (s *Server) Start() error {
 	grpcServer := grpc.NewServer()             // 调用 grpc 包的 NewServer 函数
 	pb.RegisterGroupCacheServer(grpcServer, s) // 把缓存服务挂到 gRPC 服务器上，让外部可以调用
 
+	s.lis = lis
+	s.grpcServer = grpcServer
+
 	s.Log("gRPC server listening at %s", s.self)
 	return grpcServer.Serve(lis)
+}
+
+// 从 lis 接收 TCP 连接
+// 建立 HTTP/2 连接（gRPC 基于 HTTP/2）
+// 解析 protobuf 请求
+// 调用你注册的 RPC 方法 (server提供的方法Get等)
+// 把响应序列化返回
+
+// Close 释放所有 gRPC 连接并停止服务
+func (s *Server) Close() error {
+	s.mu.Lock()
+	for _, getter := range s.peersGetter {
+		_ = getter.Close()
+	}
+	s.peersGetter = make(map[string]*grpcGetter)
+	s.mu.Unlock()
+
+	if s.grpcServer != nil {
+		s.grpcServer.GracefulStop()
+	}
+	if s.lis != nil {
+		return s.lis.Close()
+	}
+	return nil
 }
 
 // Get 处理来自其他节点或客户端的gRPC Get请求
@@ -78,14 +107,16 @@ func (s *Server) SetPeers(peers ...string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	// 先关闭旧连接，避免泄露
+	for _, getter := range s.peersGetter {
+		_ = getter.Close()
+	}
+
 	// 重建哈希环
 	s.peers = consistenthash.New(50, nil)
 	s.peers.Add(peers...) // 将所有节点添加到哈希环中
 
 	// 重建远程 Getter 映射(创建新的 map来存储每个节点的客户端连接)
-	// 键：节点地址（如 "192.168.1.1:8000"）
-	// 值：grpcGetter对象，用于向该节点发起RPC调用
-	// 为每个真实节点配置一个gRPC客户端
 	s.peersGetter = make(map[string]*grpcGetter, len(peers))
 	for _, peer := range peers {
 		s.peersGetter[peer] = &grpcGetter{addr: peer}
@@ -118,11 +149,28 @@ func (s *Server) PickPeer(key string) (group.PeerGetter, bool) {
 // grpcGetter 表示一个远程节点的 gRPC 客户端，实现 group.PeerGetter
 type grpcGetter struct {
 	addr string
+	mu   sync.Mutex
+	conn *grpc.ClientConn
 }
 
 // Log 辅助日志
 func (s *Server) Log(format string, v ...interface{}) {
 	log.Printf("[Server %s] %s", s.self, fmt.Sprintf(format, v...))
+}
+
+func (g *grpcGetter) getConn() (*grpc.ClientConn, error) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+
+	if g.conn != nil {
+		return g.conn, nil
+	}
+	conn, err := grpc.Dial(g.addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		return nil, err
+	}
+	g.conn = conn
+	return g.conn, nil
 }
 
 // Get 通过 gRPC 客户端向远端节点获取值
@@ -131,24 +179,27 @@ func (s *Server) Log(format string, v ...interface{}) {
 // out *pb.GetResponse：输出参数，用于接收返回的数据
 // 客户端（打电话）,需要向远程节点请求数据时
 func (g *grpcGetter) Get(in *pb.GetRequest, out *pb.GetResponse) error {
-	// 1. 📞 打电话给远程节点
-	// 建立到远程节点的gRPC连接,g.addr：远程节点地址（如 "192.168.1.1:8000"）
-	// insecure.NewCredentials()：使用不安全的连接（无TLS加密）
-	// defer conn.Close()：确保函数结束时关闭连接
-	conn, err := grpc.Dial(g.addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		return fmt.Errorf("dial %s failed: %v", g.addr, err)
-	}
-	defer conn.Close()
-
 	// 通过连接创建gRPC客户端
-	// 2. 🗣️ 说："我要这个数据"
+	conn, err := g.getConn()
+	if err != nil {
+		return err
+	}
 	client := pb.NewGroupCacheClient(conn)
 	resp, err := client.Get(context.Background(), in)
 	if err != nil {
 		return fmt.Errorf("rpc Get to %s failed: %v", g.addr, err)
 	}
-	// 3. 👂 听对方回复
 	out.Value = resp.Value
 	return nil
+}
+
+func (g *grpcGetter) Close() error {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if g.conn == nil {
+		return nil
+	}
+	err := g.conn.Close()
+	g.conn = nil
+	return err
 }

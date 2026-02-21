@@ -103,6 +103,9 @@ func (pq priorityQueue) Len() int {
 }
 
 func (pq priorityQueue) Less(i, j int) bool {
+	if pq[i].freq == pq[j].freq {
+		return pq[i].ts < pq[j].ts
+	}
 	return pq[i].freq < pq[j].freq
 }
 
